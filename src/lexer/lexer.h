@@ -5,6 +5,9 @@
 
 #include <token/token.h>
 
+namespace lexer
+{
+
 bool isLetter(uint8_t ch) {
     return 'a' <= ch && ch <= 'z' || 'A' <= ch && ch <= 'Z' || ch == '_';
 }
@@ -149,5 +152,7 @@ private:
     int32_t m_readPosition{};
     uint8_t m_ch;
 };
+
+}
 
 #endif // lexer_lexer_h

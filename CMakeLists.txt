@@ -6,21 +6,27 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-include_directories(${CMAKE_SOURCE_DIR})
-link_directories(${CMAKE_SOURCE_DIR})
+include_directories(${CMAKE_SOURCE_DIR}/src)
+link_directories(${CMAKE_SOURCE_DIR}/src)
 
-add_executable(hello.x "")
+file(GLOB SOURCES
+    src/*/*.h
+    src/*/*.cpp
+)
+
+add_executable(monkey.exe ${SOURCES})
 
 target_sources(
-  hello.x
+  monkey.exe
   PRIVATE
-    main.cpp
+    src/main.cpp
   )
 
+
+
+
+
 enable_testing()
-
-
-
 
 include(FetchContent)
 FetchContent_Declare(
@@ -31,14 +37,17 @@ FetchContent_Declare(
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
-add_executable(
-  hello_test
-  tests/lexer/lexer_test.cpp
+file(GLOB TEST_SOURCES
+    tests/*/*.h
+    tests/*/*.cpp
 )
+
+add_executable(tests.exe ${TEST_SOURCES})
+
 target_link_libraries(
-  hello_test
+    tests.exe
   GTest::gtest_main
 )
 
 include(GoogleTest)
-gtest_discover_tests(hello_test)
+gtest_discover_tests(tests.exe)
