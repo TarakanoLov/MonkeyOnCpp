@@ -1,8 +1,11 @@
 #ifndef token_token_h
 #define token_token_h
 
-#include <iostream>
+#include <string>
 #include <unordered_map>
+
+namespace token
+{
 
 struct Token {
     std::string type;
@@ -11,7 +14,7 @@ struct Token {
 
 inline std::string ILLEGAL = "ILLEGAL";
 
-inline std::string my_EOF     = "EOF";
+inline std::string eof  = "EOF";
 
 inline std::string IDENT = "IDENT"; // add, foobar, x, y, ...
 inline std::string INT   = "INT";   // 1343456
@@ -65,6 +68,8 @@ std::string LookupIdent(std::string_view ident)
         return IDENT;
     }
     return it->second;
+}
+
 }
 
 #endif // token_token_h
