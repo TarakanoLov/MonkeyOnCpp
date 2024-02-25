@@ -1,7 +1,6 @@
 #include "repl.h"
 
 #include <iostream>
-#include <string_view>
 
 #include <lexer/lexer.h>
 
