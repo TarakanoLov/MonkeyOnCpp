@@ -61,7 +61,7 @@ inline const std::unordered_map<std::string_view, std::string> keywords{
 	{"return", RETURN},
 };
 
-inline std::string LookupIdent(std::string_view ident)
+inline const std::string& LookupIdent(std::string_view ident)
 {
     const auto it = keywords.find(ident);
     if (it == keywords.end()) {

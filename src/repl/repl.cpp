@@ -15,7 +15,7 @@ void repl::Start() {
 
         auto lexer = lexer::Lexer(std::move(line));
         for (auto tok = lexer.NextToken(); tok.type != token::eof; tok = lexer.NextToken()) {
-            std::cout << tok.type << std::endl;
+            std::cout << tok.type << ' ' << tok.literal << std::endl;
         }
     }
 } 

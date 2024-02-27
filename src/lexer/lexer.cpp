@@ -39,7 +39,7 @@ lexer::Lexer::Lexer(std::string input) :
             tok = token::Token(token::PLUS, "+");
             break;
         case '-':
-            tok = token::Token(token::PLUS, "-");
+            tok = token::Token(token::MINUS, "-");
             break;
         case '!':
             if (this->peekChar() == '=') {
@@ -129,7 +129,7 @@ lexer::Lexer::Lexer(std::string input) :
         while (isLetter(m_ch)) {
             this->readChar();
         }
-        return m_input.substr(position, m_position);
+        return m_input.substr(position, m_position - position);
     }
 
     std::string lexer::Lexer::readNumber() {
@@ -137,6 +137,6 @@ lexer::Lexer::Lexer(std::string input) :
         while (isDigit(m_ch)) {
             this->readChar();
         }
-        return m_input.substr(position, m_position);
+        return m_input.substr(position, m_position - position);
     }
 
