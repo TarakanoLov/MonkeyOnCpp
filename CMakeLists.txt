@@ -6,21 +6,32 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+include(FetchContent)
+find_package(fmt QUIET)
+if (NOT fmt_FOUND)
+    FetchContent_Declare(
+            fmt
+            GIT_REPOSITORY https://github.com/fmtlib/fmt
+            GIT_TAG        8.1.1
+    )
+    FetchContent_MakeAvailable(fmt)
+endif()
+
 include_directories(${CMAKE_SOURCE_DIR}/src)
 link_directories(${CMAKE_SOURCE_DIR}/src)
 
 file(GLOB SOURCES
     src/*/*.h
     src/*/*.cpp
+    src/main.cpp
 )
 
 add_executable(monkey.exe ${SOURCES})
 
-target_sources(
+target_link_libraries(
   monkey.exe
-  PRIVATE
-    src/main.cpp
-  )
+  fmt::fmt
+)
 
 
 
@@ -28,7 +39,6 @@ target_sources(
 
 enable_testing()
 
-include(FetchContent)
 FetchContent_Declare(
   googletest
   URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
@@ -48,7 +58,8 @@ add_executable(tests.exe ${TEST_SOURCES})
 
 target_link_libraries(
     tests.exe
-  GTest::gtest_main
+    GTest::gtest_main
+    fmt::fmt
 )
 
 include(GoogleTest)

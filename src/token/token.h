@@ -44,14 +44,14 @@ inline std::string RBRACE = "}";
 
 	// Keywords
 inline std::string FUNCTION = "FUNCTION";
-inline std::string LET      = "LET";
+inline constexpr std::string_view LET      = "LET";
 inline std::string TRUE     = "TRUE";
 inline std::string FALSE    = "FALSE";
 inline std::string IF       = "IF";
 inline std::string ELSE     = "ELSE";
 inline std::string RETURN   = "RETURN";
 
-inline const std::unordered_map<std::string_view, std::string> keywords{
+inline const std::unordered_map<std::string_view, std::string_view> keywords{
     {"fn",     FUNCTION},
 	{"let",    LET},
 	{"true",   TRUE},
@@ -61,7 +61,7 @@ inline const std::unordered_map<std::string_view, std::string> keywords{
 	{"return", RETURN},
 };
 
-inline const std::string& LookupIdent(std::string_view ident)
+inline std::string_view LookupIdent(std::string_view ident)
 {
     const auto it = keywords.find(ident);
     if (it == keywords.end()) {

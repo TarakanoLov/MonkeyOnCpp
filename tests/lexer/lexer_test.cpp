@@ -27,7 +27,7 @@ if (5 < 10) {
 10 == 10;
 10 != 9;)---";
 
-    const std::vector<std::pair<std::string, std::string>> tests{
+    const std::vector<std::pair<std::string_view, std::string_view>> tests{
 		{token::LET, "let"},
 		{token::IDENT, "five"},
 		{token::ASSIGN, "="},
