@@ -29,7 +29,7 @@ struct Parser {
         return program;
     }
 
-    const std::vector<std::string>& Errors() {
+    const std::vector<std::string>& Errors() const {
         return this->errors;
     }
 
@@ -73,11 +73,12 @@ struct Parser {
             this->nextToken();
             return true;
         }
+        this->peekError(t);
         return false;
     }
 
-    void peekError(token::Token t) {
-        this->errors.emplace_back(fmt::format("expected next token to be {}, got {} instead", t.type, this->peekToken.type));
+    void peekError(std::string_view t) {
+        this->errors.emplace_back(fmt::format("expected next token to be {}, got {} instead", t, this->peekToken.type));
     }
 
     lexer::Lexer l;
