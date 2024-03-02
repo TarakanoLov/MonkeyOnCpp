@@ -11,6 +11,7 @@ namespace ast {
 
 struct Node {
     virtual std::string TokenLiteral() = 0;
+    virtual std::string String() = 0;
 };
 
 struct Statement : public Node {
@@ -23,20 +24,31 @@ struct Expression : public Node {
 
 class Program {
 public:
-   std::string TokenLiteral() {
-    if (this->statements.size() > 0) {
-        return this->statements[0]->TokenLiteral();
+    std::string TokenLiteral() {
+        if (this->statements.size() > 0) {
+            return this->statements[0]->TokenLiteral();
+        }
+        return "";
     }
-    return "";
-   }
+
+    std::string String() {
+        std::stringstream out;
+        for (const auto& statement : statements) {
+            out << statement->String();
+        }
+        return out.str();
+    }
 
    std::vector<std::shared_ptr<Statement>> statements;
 };
 
-struct Identifier {
-    void expressionNode() {}
+struct Identifier : public Expression {
+    std::string expressionNode() override { return ""; }
     std::string TokenLiteral() {
         return this->token.literal;
+    }
+    std::string String() {
+        return this->value;
     }
 
     token::Token token;
@@ -48,10 +60,71 @@ struct LetStatement : public Statement {
     std::string TokenLiteral() {
         return this->token.literal;
     }
+    std::string String() override {
+        std::stringstream out;
+        out << this->TokenLiteral() << ' ' << name.String() << " = ";
+
+        if (this->value) {
+            out << this->value->String();
+        }
+        out << ';';
+        return out.str();
+    }
 
     token::Token token;
     Identifier name;
+    std::shared_ptr<Expression> value;
+};
+
+struct ReturnStatement : public Statement {
+    std::string statementNode() override { return ""; }
+    std::string TokenLiteral() {
+        return this->token.literal;
+    }
+    std::string String() override {
+        std::stringstream out;
+
+
+        out << this->TokenLiteral() << ' ';
+        if (this->returnValue) {
+            out << this->returnValue->String();
+        }
+
+        out << ';';
+        return out.str();
+    }
+
+    token::Token token;
+    std::shared_ptr<Expression> returnValue;
+};
+
+struct ExpressionStatement : public Statement {
+    std::string statementNode() override { return ""; }
+    std::string TokenLiteral() {
+        return this->token.literal;
+    }
+    std::string String() override {
+        if (this->expression.get()) {
+            return this->expression->String();
+        }
+        return "";
+    }
+
+    token::Token token;
     std::shared_ptr<Expression> expression;
+};
+
+struct IntegerLiteral : public Expression {
+    std::string expressionNode() override { return ""; }
+    std::string TokenLiteral() {
+        return this->token.literal;
+    }
+    std::string String() {
+        return this->token.literal;
+    }
+
+    token::Token token;
+    int64_t value{};
 };
 
 } // namespace ast

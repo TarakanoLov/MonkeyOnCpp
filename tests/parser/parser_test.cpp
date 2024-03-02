@@ -28,7 +28,7 @@ void checkParserError(const Parser& p) {
     }
 }
 
-TEST(Lexer, My) {
+TEST(Parser, Let) {
     const std::string input = R"(
         let x = 5;
         let y = 10;
@@ -46,4 +46,67 @@ TEST(Lexer, My) {
     for (int i = 0; i < tests.size(); ++i) {
         testLetStatement(program.statements[i], tests[i]);
     }
+}
+
+TEST(Parser, Return) {
+    const std::string input = R"(
+        return 5;
+        return 10;
+        return 993322;
+    )";
+
+    auto l = lexer::Lexer(input);
+    auto p = Parser(std::move(l));
+    auto program = p.ParseProgram();
+    checkParserError(p);
+
+    ASSERT_EQ(program.statements.size(), 3);
+
+    for (int i = 0; i < program.statements.size(); ++i) {
+        const auto returnStmt = dynamic_cast<ast::ReturnStatement*>(program.statements[i].get());
+        ASSERT_TRUE(!!returnStmt);
+
+        EXPECT_EQ(returnStmt->TokenLiteral(), "return");
+    }
+}
+
+TEST(ParseProgram, Identifier) {
+    const std::string input = "foobar;";
+
+    auto l = lexer::Lexer(input);
+    auto p = Parser(std::move(l));
+    auto program = p.ParseProgram();
+    checkParserError(p);
+
+    ASSERT_EQ(program.statements.size(), 1);
+
+    const auto stmt = dynamic_cast<ast::ExpressionStatement*>(program.statements[0].get());
+    ASSERT_TRUE(!!stmt);
+
+    const auto ident = dynamic_cast<ast::Identifier*>(stmt->expression.get());
+    ASSERT_TRUE(!!ident);
+
+    EXPECT_EQ(ident->value, "foobar");
+
+    EXPECT_EQ(ident->TokenLiteral(), "foobar");
+}
+
+TEST(ParseProgram, IntegerLiteral) {
+    const std::string input = "5;";
+
+    auto l = lexer::Lexer(input);
+    auto p = Parser(std::move(l));
+    auto program = p.ParseProgram();
+    checkParserError(p);
+
+    ASSERT_EQ(program.statements.size(), 1);
+
+    const auto stmt = dynamic_cast<ast::ExpressionStatement*>(program.statements[0].get());
+    ASSERT_TRUE(!!stmt);
+
+    const auto literal = dynamic_cast<ast::IntegerLiteral*>(stmt->expression.get());
+    ASSERT_TRUE(!!literal);
+
+    EXPECT_EQ(literal->value, 5);
+    EXPECT_EQ(literal->TokenLiteral(), "5");
 }
