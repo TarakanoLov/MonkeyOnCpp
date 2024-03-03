@@ -15,6 +15,15 @@ void testLetStatement(std::shared_ptr<ast::Statement> s, std::string_view name) 
     EXPECT_EQ(letStmt->name.TokenLiteral(), name);
 }
 
+void testIntegerLiteral(std::shared_ptr<ast::Expression> il, int64_t value) {
+    const auto integ = dynamic_cast<ast::IntegerLiteral*>(il.get());
+    ASSERT_TRUE(!!integ);
+
+    EXPECT_EQ(integ->value, value);
+
+    EXPECT_EQ(integ->TokenLiteral(), std::to_string(value));
+}
+
 void checkParserError(const Parser& p) {
     const auto& errors = p.Errors();
 
@@ -109,4 +118,119 @@ TEST(ParseProgram, IntegerLiteral) {
 
     EXPECT_EQ(literal->value, 5);
     EXPECT_EQ(literal->TokenLiteral(), "5");
+}
+
+TEST(ParseProgram, PrefixExpressions) {
+    const std::vector<std::tuple<std::string, std::string, int64_t>> prefixTests{{"!5;", "!", 5}, {"-15;", "-", 15}};
+    for (const auto& one_test : prefixTests) {
+        auto l = lexer::Lexer(std::get<0>(one_test));
+        auto p = Parser(std::move(l));
+        auto program = p.ParseProgram();
+        checkParserError(p);
+
+        EXPECT_EQ(program.statements.size(), 1);
+
+        const auto stmt = dynamic_cast<ast::ExpressionStatement*>(program.statements[0].get());
+        ASSERT_TRUE(!!stmt);
+
+        const auto exp = dynamic_cast<ast::PrefixExpression*>(stmt->expression.get());
+        ASSERT_TRUE(!!exp);
+
+        EXPECT_EQ(exp->my_operator, std::get<1>(one_test));
+        testIntegerLiteral(exp->right, std::get<2>(one_test));
+    }
+}
+
+TEST(ParseProgram, InfixExpressions) {
+    std::vector<std::tuple<std::string, int64_t, std::string, int64_t>> infixTests{{"5 + 5;", 5, "+", 5}, {"5 - 5;", 5, "-", 5},
+{"5 * 5;", 5, "*", 5},
+{"5 / 5;", 5, "/", 5},
+{"5 > 5;", 5, ">", 5},
+{"5 < 5;", 5, "<", 5},
+{"5 == 5;", 5, "==", 5},
+{"5 != 5;", 5, "!=", 5}};
+    for (const auto& [input, leftValue, my_operator, rightValue] : infixTests) {
+        auto l = lexer::Lexer(input);
+        auto p = Parser(std::move(l));
+        auto program = p.ParseProgram();
+        checkParserError(p);
+
+        ASSERT_EQ(program.statements.size(), 1);
+
+        const auto stmt = dynamic_cast<ast::ExpressionStatement*>(program.statements[0].get());
+        ASSERT_TRUE(!!stmt);
+
+        const auto exp = dynamic_cast<ast::InfixExpression*>(stmt->expression.get());
+        ASSERT_TRUE(!!exp);
+
+        testIntegerLiteral(exp->left, leftValue);
+
+        EXPECT_EQ(exp->my_operator, my_operator);
+
+        testIntegerLiteral(exp->right, rightValue);
+    }
+}
+
+TEST(ParseProgram, OperatorPrecedence) {
+    std::vector<std::pair<std::string, std::string>> tests{{
+"-a * b",
+"((-a) * b)",
+},
+{
+"!-a",
+"(!(-a))",
+},
+{
+"a + b + c",
+"((a + b) + c)",
+},
+{
+"a + b - c",
+"((a + b) - c)",
+},
+{
+"a * b * c",
+"((a * b) * c)",
+},
+{
+"a * b / c",
+"((a * b) / c)",
+},
+{
+"a + b / c",
+"(a + (b / c))",
+},
+{
+"a + b * c + d / e - f",
+"(((a + (b * c)) + (d / e)) - f)",
+},
+{
+"3 + 4; -5 * 5",
+"(3 + 4)((-5) * 5)",
+},
+{
+"5 > 4 == 3 < 4",
+"((5 > 4) == (3 < 4))",
+},
+{
+"5 < 4 != 3 > 4",
+"((5 < 4) != (3 > 4))",
+},
+{
+"3 + 4 * 5 == 3 * 1 + 4 * 5",
+"((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))",
+},
+{
+"3 + 4 * 5 == 3 * 1 + 4 * 5",
+"((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))",
+}};
+    for (const auto& [input, exprected] : tests) {
+        auto l = lexer::Lexer(input);
+        auto p = Parser(std::move(l));
+        auto program = p.ParseProgram();
+        checkParserError(p);
+
+        const auto actual = program.String();
+        EXPECT_EQ(actual, exprected);
+    }
 }

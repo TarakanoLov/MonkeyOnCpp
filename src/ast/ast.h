@@ -127,6 +127,39 @@ struct IntegerLiteral : public Expression {
     int64_t value{};
 };
 
+struct PrefixExpression : public Expression {
+    std::string expressionNode() override { return ""; }
+    std::string TokenLiteral() {
+        return this->token.literal;
+    }
+    std::string String() {
+        std::stringstream out;
+        out << '(' << this->my_operator << this->right->String() << ')';
+        return out.str();
+    }
+
+    token::Token token;
+    std::string my_operator;
+    std::shared_ptr<Expression> right;
+};
+
+struct InfixExpression : public Expression {
+    std::string expressionNode() override { return ""; }
+    std::string TokenLiteral() {
+        return this->token.literal;
+    }
+    std::string String() {
+        std::stringstream out;
+        out << '(' << this->left->String() << ' ' << this->my_operator << ' ' << this->right->String() << ')';
+        return out.str();
+    }
+
+    token::Token token;
+    std::shared_ptr<Expression> left;
+    std::string my_operator;
+    std::shared_ptr<Expression> right;
+};
+
 } // namespace ast
 
 #endif // ast_ast_h

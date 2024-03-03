@@ -25,6 +25,17 @@ enum class Priority {
     Call
 };
 
+inline const auto precedences = std::unordered_map<std::string_view, Priority>{
+    {token::EQ, Priority::Equals},
+    {token::NOT_EQ, Priority::Equals},
+    {token::LT, Priority::LessGreater},
+    {token::GT, Priority::LessGreater},
+    {token::PLUS, Priority::Sum},
+    {token::MINUS, Priority::Sum},
+    {token::SLASH, Priority::Product},
+    {token::ASTERISK, Priority::Product},
+    };
+
 struct Parser {
     Parser(lexer::Lexer lexer) : l(std::move(lexer)) {
         this->nextToken();
@@ -32,6 +43,17 @@ struct Parser {
 
         this->registerPrefix(token::IDENT, &Parser::parseIdentifier);
         this->registerPrefix(token::INT, &Parser::parseIntegerLiteral);
+        this->registerPrefix(token::BANG, &Parser::parsePrefixExpression);
+        this->registerPrefix(token::MINUS, &Parser::parsePrefixExpression);
+    
+        this->registerInfix(token::PLUS, &Parser::parseInfixExpression);
+        this->registerInfix(token::MINUS, &Parser::parseInfixExpression);
+        this->registerInfix(token::SLASH, &Parser::parseInfixExpression);
+        this->registerInfix(token::ASTERISK, &Parser::parseInfixExpression);
+        this->registerInfix(token::EQ, &Parser::parseInfixExpression);
+        this->registerInfix(token::NOT_EQ, &Parser::parseInfixExpression);
+        this->registerInfix(token::LT, &Parser::parseInfixExpression);
+        this->registerInfix(token::GT, &Parser::parseInfixExpression);
     }
 
     std::shared_ptr<ast::Expression> parseIdentifier() {
@@ -122,10 +144,21 @@ struct Parser {
     std::shared_ptr<ast::Expression> parseExpression(Priority precedence) {
         auto prefix = this->prefixParseFns[this->curToken.type];
         if (!prefix) {
+            this->noPrefixParseFnError(this->curToken.type);
             return {};
         }
         auto leftExp = std::invoke(prefix, this);
 
+        while (!this->peekTokenIs(token::SEMICOLON) && precedence < this->peekPrecedence()) {
+            auto infix = this->infixParseFns[this->peekToken.type];
+            if (!infix) {
+                return leftExp;
+            }
+
+            this->nextToken();
+
+            leftExp = std::invoke(infix, this, leftExp);
+        }
         return leftExp;
     }
 
@@ -138,6 +171,35 @@ struct Parser {
         
         lit->value = value;
         return lit;
+    }
+
+    std::shared_ptr<ast::Expression> parsePrefixExpression() {
+        auto expression = std::make_shared<ast::PrefixExpression>();
+        expression->token = this->curToken;
+        expression->my_operator = this->curToken.literal;
+
+        this->nextToken();
+
+        expression->right = this->parseExpression(Priority::Prefix);
+
+        return expression;
+    }
+
+    std::shared_ptr<ast::Expression> parseInfixExpression(std::shared_ptr<ast::Expression> left) {
+        auto expression = std::make_shared<ast::InfixExpression>();
+        expression->token = this->curToken;
+        expression->my_operator = this->curToken.literal;
+        expression->left = left;
+
+        const auto precedence = this->curPrecedence();
+        this->nextToken();
+        expression->right = this->parseExpression(precedence);
+
+        return expression;
+    }
+
+    void noPrefixParseFnError(std::string_view t) {
+        this->errors.emplace_back(fmt::format("no prefix parse function for {} found", t));
     }
 
     bool curTokenIs(std::string_view t) {
@@ -166,9 +228,25 @@ struct Parser {
         this->prefixParseFns[std::move(tokenType)] = fn;
     }
 
-    void refisterInfix(std::string tokenType, infixParseFn fn) {
+    void registerInfix(std::string tokenType, infixParseFn fn) {
         this->infixParseFns[std::move(tokenType)] = fn;
     }
+
+    Priority peekPrecedence() {
+        const auto it = precedences.find(this->peekToken.type);
+        if (it != precedences.end()) {
+            return it->second;
+        }
+        return Priority::Lowest;
+    }
+
+    Priority curPrecedence() {
+        const auto it = precedences.find(this->curToken.type);
+        if (it != precedences.end()) {
+            return it->second;
+        }
+        return Priority::Lowest;
+    } 
 
     lexer::Lexer l;
     token::Token curToken;
