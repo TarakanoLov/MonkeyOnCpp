@@ -24,6 +24,49 @@ void testIntegerLiteral(std::shared_ptr<ast::Expression> il, int64_t value) {
     EXPECT_EQ(integ->TokenLiteral(), std::to_string(value));
 }
 
+void testIdentifier(std::shared_ptr<ast::Expression> exp, std::string_view value) {
+    const auto ident = dynamic_cast<ast::Identifier*>(exp.get());
+    ASSERT_TRUE(!!ident);
+
+    EXPECT_EQ(ident->value, value);
+    EXPECT_EQ(ident->TokenLiteral(), value);
+}
+
+void testBooleanLiteral(std::shared_ptr<ast::Expression> exp, bool value) {
+    const auto bo = dynamic_cast<ast::Boolean*>(exp.get());
+    ASSERT_TRUE(!!bo);
+
+    EXPECT_EQ(bo->value, value);
+
+    EXPECT_EQ(bo->TokenLiteral(), (value ? "true" : "false"));
+}
+
+template <typename T>
+void testLiteralExpression(std::shared_ptr<ast::Expression> exp, T value) {
+    if constexpr (std::is_same_v<T, int>) {
+        return testIntegerLiteral(exp, value);
+    } else if constexpr (std::is_same_v<T, int64_t>) {
+        return testIntegerLiteral(exp, value);
+    } else if constexpr (std::is_same_v<T, std::string_view>) {
+        return testIdentifier(exp, value);
+    } else if constexpr (std::is_same_v<T, bool>) {
+        return testBooleanLiteral(exp, value);
+    }
+    EXPECT_TRUE(false) << "value = " << value;
+}
+
+template <typename Left, typename Right>
+void testInfixExpression(std::shared_ptr<ast::Expression> exp, Left left, std::string_view cur_operator, Right right) {
+    const auto opExpr = dynamic_cast<ast::InfixExpression*>(exp.get());
+    ASSERT_TRUE(!!opExpr);
+    
+    testLiteralExpression(opExpr->left, left);
+
+    EXPECT_EQ(opExpr->my_operator, cur_operator);
+
+    testLiteralExpression(opExpr->right, right);
+}
+
 void checkParserError(const Parser& p) {
     const auto& errors = p.Errors();
 
@@ -139,6 +182,25 @@ TEST(ParseProgram, PrefixExpressions) {
         EXPECT_EQ(exp->my_operator, std::get<1>(one_test));
         testIntegerLiteral(exp->right, std::get<2>(one_test));
     }
+    const std::vector<std::tuple<std::string, std::string, bool>> prefixTestsBool{{"!true;", "!", true},
+{"!false;", "!", false}};
+    for (const auto& one_test : prefixTestsBool) {
+        auto l = lexer::Lexer(std::get<0>(one_test));
+        auto p = Parser(std::move(l));
+        auto program = p.ParseProgram();
+        checkParserError(p);
+
+        EXPECT_EQ(program.statements.size(), 1);
+
+        const auto stmt = dynamic_cast<ast::ExpressionStatement*>(program.statements[0].get());
+        ASSERT_TRUE(!!stmt);
+
+        const auto exp = dynamic_cast<ast::PrefixExpression*>(stmt->expression.get());
+        ASSERT_TRUE(!!exp);
+
+        EXPECT_EQ(exp->my_operator, std::get<1>(one_test));
+        testLiteralExpression(exp->right, std::get<2>(one_test));
+    }
 }
 
 TEST(ParseProgram, InfixExpressions) {
@@ -149,6 +211,9 @@ TEST(ParseProgram, InfixExpressions) {
 {"5 < 5;", 5, "<", 5},
 {"5 == 5;", 5, "==", 5},
 {"5 != 5;", 5, "!=", 5}};
+std::vector<std::tuple<std::string, bool, std::string, bool>> infixTestsBool{{"true == true", true, "==", true},
+{"true != false", true, "!=", false},
+{"false == false", false, "==", false}};
     for (const auto& [input, leftValue, my_operator, rightValue] : infixTests) {
         auto l = lexer::Lexer(input);
         auto p = Parser(std::move(l));
@@ -163,11 +228,32 @@ TEST(ParseProgram, InfixExpressions) {
         const auto exp = dynamic_cast<ast::InfixExpression*>(stmt->expression.get());
         ASSERT_TRUE(!!exp);
 
-        testIntegerLiteral(exp->left, leftValue);
+        testLiteralExpression(exp->left, leftValue);
 
         EXPECT_EQ(exp->my_operator, my_operator);
 
-        testIntegerLiteral(exp->right, rightValue);
+        testLiteralExpression(exp->right, rightValue);
+    }
+
+    for (const auto& [input, leftValue, my_operator, rightValue] : infixTestsBool) {
+        auto l = lexer::Lexer(input);
+        auto p = Parser(std::move(l));
+        auto program = p.ParseProgram();
+        checkParserError(p);
+
+        ASSERT_EQ(program.statements.size(), 1);
+
+        const auto stmt = dynamic_cast<ast::ExpressionStatement*>(program.statements[0].get());
+        ASSERT_TRUE(!!stmt);
+
+        const auto exp = dynamic_cast<ast::InfixExpression*>(stmt->expression.get());
+        ASSERT_TRUE(!!exp);
+
+        testLiteralExpression(exp->left, leftValue);
+
+        EXPECT_EQ(exp->my_operator, my_operator);
+
+        testLiteralExpression(exp->right, rightValue);
     }
 }
 
@@ -223,6 +309,40 @@ TEST(ParseProgram, OperatorPrecedence) {
 {
 "3 + 4 * 5 == 3 * 1 + 4 * 5",
 "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))",
+},
+{
+    "true", "true"
+},
+{
+    "false", "false"
+},
+{
+    "3 > 5 == false",
+    "((3 > 5) == false)"
+},
+{
+    "3 < 5 == true",
+    "((3 < 5) == true)"
+},
+{
+"1 + (2 + 3) + 4",
+"((1 + (2 + 3)) + 4)",
+},
+{
+"(5 + 5) * 2",
+"((5 + 5) * 2)",
+},
+{
+"2 / (5 + 5)",
+"(2 / (5 + 5))",
+},
+{
+"-(5 + 5)",
+"(-(5 + 5))",
+},
+{
+"!(true == true)",
+"(!(true == true))",
 }};
     for (const auto& [input, exprected] : tests) {
         auto l = lexer::Lexer(input);
@@ -233,4 +353,32 @@ TEST(ParseProgram, OperatorPrecedence) {
         const auto actual = program.String();
         EXPECT_EQ(actual, exprected);
     }
+}
+
+TEST(ParseProgram, IfExpression) {
+    const std::string input = "if (x < y) { x }";
+
+    auto l = lexer::Lexer(input);
+    auto p = Parser(std::move(l));
+    auto program = p.ParseProgram();
+    checkParserError(p);
+
+    ASSERT_EQ(program.statements.size(), 1);
+
+    const auto stmt = dynamic_cast<ast::ExpressionStatement*>(program.statements[0].get());
+    ASSERT_TRUE(!!stmt);
+
+    const auto exp = dynamic_cast<ast::IfExpression*>(stmt->expression.get());
+    ASSERT_TRUE(!!exp);
+
+    testInfixExpression(exp->condition, std::string_view{"x"}, "<", std::string_view{"y"});
+
+    EXPECT_EQ(exp->consequence->statements.size(), 1);
+
+    const auto concequence = dynamic_cast<ast::ExpressionStatement*>(exp->consequence->statements[0].get());
+    ASSERT_TRUE(!!concequence);
+
+    testIdentifier(concequence->expression, std::string_view{"x"});
+
+    EXPECT_FALSE(exp->alternative.get());
 }

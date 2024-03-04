@@ -160,6 +160,56 @@ struct InfixExpression : public Expression {
     std::shared_ptr<Expression> right;
 };
 
+struct Boolean : public Expression {
+    std::string expressionNode() override { return ""; }
+    std::string TokenLiteral() {
+        return this->token.literal;
+    }
+    std::string String() {
+        return this->token.literal;
+    }
+
+    token::Token token;
+    bool value{};
+};
+
+struct BlockStatement : public Statement {
+    std::string statementNode() override { return ""; }
+    std::string TokenLiteral() {
+        return this->token.literal;
+    }
+    std::string String() override {
+        std::stringstream out;
+        for (const auto& statement : statements) {
+            out << statement->String();
+        }
+        return out.str();
+    }
+
+    token::Token token;
+    std::vector<std::shared_ptr<Statement>> statements;
+};
+
+struct IfExpression : public Expression {
+    std::string expressionNode() override { return ""; }
+    std::string TokenLiteral() {
+        return this->token.literal;
+    }
+    std::string String() {
+        std::stringstream out;
+        out << "if" << this->condition->String() << ' ' << this->consequence->String();
+        if (this->alternative.get()) {
+            out << "else " << this->alternative;
+        }
+        return out.str();
+    }
+
+    token::Token token;
+    std::shared_ptr<Expression> condition;
+    std::shared_ptr<BlockStatement> consequence;
+    std::shared_ptr<BlockStatement> alternative;
+};
+
 } // namespace ast
 
 #endif // ast_ast_h

@@ -45,7 +45,11 @@ struct Parser {
         this->registerPrefix(token::INT, &Parser::parseIntegerLiteral);
         this->registerPrefix(token::BANG, &Parser::parsePrefixExpression);
         this->registerPrefix(token::MINUS, &Parser::parsePrefixExpression);
-    
+        this->registerPrefix(token::TRUE, &Parser::parseBoolean);
+        this->registerPrefix(token::FALSE, &Parser::parseBoolean);
+        this->registerPrefix(token::LPAREN, &Parser::parseGroupedExpression);
+        this->registerPrefix(token::IF, &Parser::parseIfExpression);
+
         this->registerInfix(token::PLUS, &Parser::parseInfixExpression);
         this->registerInfix(token::MINUS, &Parser::parseInfixExpression);
         this->registerInfix(token::SLASH, &Parser::parseInfixExpression);
@@ -195,6 +199,72 @@ struct Parser {
         this->nextToken();
         expression->right = this->parseExpression(precedence);
 
+        return expression;
+    }
+
+    std::shared_ptr<ast::Expression> parseBoolean() {
+        auto expression = std::make_shared<ast::Boolean>();
+        expression->token = this->curToken;
+        expression->value = this->curTokenIs(token::TRUE);
+        return expression;
+    }
+
+    std::shared_ptr<ast::Expression> parseGroupedExpression() {
+        this->nextToken();
+
+        auto exp = this->parseExpression(Priority::Lowest);
+        if (!this->expectPeek(token::RPAREN)) {
+            return {};
+        }
+        return exp;
+    }
+
+    std::shared_ptr<ast::BlockStatement> parseBlockStatement() {
+        auto block = std::make_shared<ast::BlockStatement>();
+        block->token = this->curToken;
+        
+        this->nextToken();
+
+        while (!this->curTokenIs(token::RBRACE) && !this->curTokenIs(token::eof)) {
+            auto stmt = this->parseStatement();
+            if (stmt.get()) {
+                block->statements.push_back(std::move(stmt));
+            }
+            this->nextToken();
+        }
+        return block;
+    }
+
+    std::shared_ptr<ast::Expression> parseIfExpression() {
+        auto expression = std::make_shared<ast::IfExpression>();
+        expression->token = this->curToken;
+
+        if (!this->expectPeek(token::LPAREN)) {
+            return {};
+        }
+
+        this->nextToken();
+        expression->condition = this->parseExpression(Priority::Lowest);
+
+        if (!this->expectPeek(token::RPAREN)) {
+            return {};
+        }
+
+        if (!this->expectPeek(token::LBRACE)) {
+            return {};
+        }
+
+        expression->consequence = this->parseBlockStatement();
+
+        if (this->peekTokenIs(token::ELSE)) {
+            this->nextToken();
+
+            if (!this->expectPeek(token::LBRACE)) {
+                return {};
+            }
+
+            expression->alternative = this->parseBlockStatement();
+        }
         return expression;
     }
 
