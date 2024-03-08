@@ -49,6 +49,7 @@ struct Parser {
         this->registerPrefix(token::FALSE, &Parser::parseBoolean);
         this->registerPrefix(token::LPAREN, &Parser::parseGroupedExpression);
         this->registerPrefix(token::IF, &Parser::parseIfExpression);
+        this->registerPrefix(token::FUNCTION, &Parser::parseFunctionLiteral);
 
         this->registerInfix(token::PLUS, &Parser::parseInfixExpression);
         this->registerInfix(token::MINUS, &Parser::parseInfixExpression);
@@ -266,6 +267,55 @@ struct Parser {
             expression->alternative = this->parseBlockStatement();
         }
         return expression;
+    }
+
+    std::vector<std::shared_ptr<ast::Identifier>> parseFunctionParameters() {
+        std::vector<std::shared_ptr<ast::Identifier>> identifiers;
+        if (this->peekTokenIs(token::RPAREN)) {
+            this->nextToken();
+            return identifiers;
+        }
+
+        this->nextToken();
+
+        auto ident = std::make_shared<ast::Identifier>();
+        ident->token = this->curToken;
+        ident->value = this->curToken.literal;
+        identifiers.push_back(std::move(ident));
+
+        while (this->peekTokenIs(token::COMMA)) {
+            this->nextToken();
+            this->nextToken();
+            ident = std::make_shared<ast::Identifier>();
+            ident->token = this->curToken;
+            ident->value = this->curToken.literal;
+            identifiers.push_back(std::move(ident));
+        }
+
+        if (!this->expectPeek(token::RPAREN)) {
+            return {};
+        }
+
+        return identifiers;
+    }
+
+    std::shared_ptr<ast::Expression> parseFunctionLiteral() {
+        auto lit = std::make_shared<ast::FunctionLteral>();
+        lit->token = this->curToken;
+
+        if (!this->expectPeek(token::LPAREN)) {
+            return {};
+        }
+        
+        lit->parameters = this->parseFunctionParameters();
+
+        if (!this->expectPeek(token::LBRACE)) {
+            return {};
+        }
+
+        lit->body = this->parseBlockStatement();
+
+        return lit;
     }
 
     void noPrefixParseFnError(std::string_view t) {

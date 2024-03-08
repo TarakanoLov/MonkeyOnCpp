@@ -1,3 +1,5 @@
+#include <ranges>
+
 #include <gtest/gtest.h>
 
 #include <ast/ast.h>
@@ -47,12 +49,12 @@ void testLiteralExpression(std::shared_ptr<ast::Expression> exp, T value) {
         return testIntegerLiteral(exp, value);
     } else if constexpr (std::is_same_v<T, int64_t>) {
         return testIntegerLiteral(exp, value);
-    } else if constexpr (std::is_same_v<T, std::string_view>) {
+    } else if constexpr (std::is_same_v<T, std::string_view> || std::is_same_v<T, const char*> || std::is_same_v<T, std::string>) {
         return testIdentifier(exp, value);
     } else if constexpr (std::is_same_v<T, bool>) {
         return testBooleanLiteral(exp, value);
     }
-    EXPECT_TRUE(false) << "value = " << value;
+    EXPECT_TRUE(false) << "value = " << value << "with type = " << typeid(T).name();
 }
 
 template <typename Left, typename Right>
@@ -381,4 +383,91 @@ TEST(ParseProgram, IfExpression) {
     testIdentifier(concequence->expression, std::string_view{"x"});
 
     EXPECT_FALSE(exp->alternative.get());
+}
+
+TEST(ParseProgram, IfElseExpression) {
+    const std::string input = "if (x < y) { x } else { y }";
+
+    auto l = lexer::Lexer(input);
+    auto p = Parser(std::move(l));
+    auto program = p.ParseProgram();
+    checkParserError(p);
+
+    ASSERT_EQ(program.statements.size(), 1);
+
+    const auto stmt = dynamic_cast<ast::ExpressionStatement*>(program.statements[0].get());
+    ASSERT_TRUE(!!stmt);
+
+    const auto exp = dynamic_cast<ast::IfExpression*>(stmt->expression.get());
+    ASSERT_TRUE(!!exp);
+
+    testInfixExpression(exp->condition, std::string_view{"x"}, "<", std::string_view{"y"});
+
+    EXPECT_EQ(exp->consequence->statements.size(), 1);
+
+    const auto concequence = dynamic_cast<ast::ExpressionStatement*>(exp->consequence->statements[0].get());
+    ASSERT_TRUE(!!concequence);
+
+    testIdentifier(concequence->expression, std::string_view{"x"});
+
+    EXPECT_TRUE(exp->alternative.get());
+    const auto alternative = dynamic_cast<ast::ExpressionStatement*>(exp->alternative->statements[0].get());
+    ASSERT_TRUE(!!concequence);
+
+    testIdentifier(alternative->expression, std::string_view{"y"});
+}
+
+TEST(ParseProgram, FunctionLiteral) {
+    const std::string input = "fn(x, y) { x + y; }";
+
+    auto l = lexer::Lexer(input);
+    auto p = Parser(std::move(l));
+    auto program = p.ParseProgram();
+    checkParserError(p);
+
+    ASSERT_EQ(program.statements.size(), 1);
+
+    const auto stmt = dynamic_cast<ast::ExpressionStatement*>(program.statements[0].get());
+    ASSERT_TRUE(!!stmt);
+
+    const auto function = dynamic_cast<ast::FunctionLteral*>(stmt->expression.get());
+    ASSERT_TRUE(!!function);
+
+    ASSERT_EQ(function->parameters.size(), 2);
+
+    testLiteralExpression(function->parameters[0], "x");
+    testLiteralExpression(function->parameters[1], "y");
+
+    ASSERT_EQ(function->body->statements.size(), 1);
+
+    const auto bodyStmt = dynamic_cast<ast::ExpressionStatement*>(function->body->statements[0].get());
+    ASSERT_TRUE(!!bodyStmt);
+
+    testInfixExpression(bodyStmt->expression, "x", "+", "y");
+}
+
+TEST(ParseProgram, FunctionParameter) {
+    const std::vector<std::pair<std::string, std::vector<std::string>>> tests {
+        {"fn() {};", {}},
+        {"fn(x) {};", std::vector<std::string>{"x"}},
+        {"fn(x, y, z) {}", std::vector<std::string>{"x", "y", "z"}}
+    };
+
+    for (const auto& [input, expectedParams] : tests) {
+        auto l = lexer::Lexer(input);
+        auto p = Parser(std::move(l));
+        auto program = p.ParseProgram();
+        checkParserError(p);
+
+        const auto stmt = dynamic_cast<ast::ExpressionStatement*>(program.statements[0].get());
+        ASSERT_TRUE(!!stmt);
+        const auto function = dynamic_cast<ast::FunctionLteral*>(stmt->expression.get());
+        ASSERT_TRUE(!!function);
+
+        ASSERT_EQ(function->parameters.size(), expectedParams.size());
+
+        for (uint32_t i = 0; i < expectedParams.size(); ++i) {
+            testLiteralExpression(function->parameters[i], expectedParams[i]);
+        }
+    }
 }

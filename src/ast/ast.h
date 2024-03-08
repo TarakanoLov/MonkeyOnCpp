@@ -210,6 +210,27 @@ struct IfExpression : public Expression {
     std::shared_ptr<BlockStatement> alternative;
 };
 
+struct FunctionLteral : public Expression {
+    std::string expressionNode() override { return ""; }
+    std::string TokenLiteral() {
+        return this->token.literal;
+    }
+    std::string String() {
+        std::stringstream out;
+        out << this->TokenLiteral() << '(';
+        for (const auto& one : parameters) {
+            out << one->String() << ", ";
+        }
+        out << ") ";
+        out << this->body->String();
+        return out.str();
+    }
+
+    token::Token token;
+    std::vector<std::shared_ptr<Identifier>> parameters;
+    std::shared_ptr<BlockStatement> body;
+};
+
 } // namespace ast
 
 #endif // ast_ast_h
