@@ -345,7 +345,20 @@ TEST(ParseProgram, OperatorPrecedence) {
 {
 "!(true == true)",
 "(!(true == true))",
-}};
+},
+{
+"a + add(b * c) + d",
+"((a + add((b * c))) + d)",
+},
+{
+"add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8))",
+"add(a, b, 1, (2 * 3), (4 + 5), add(6, (7 * 8)))",
+},
+{
+"add(a + b + c * d / f + g)",
+"add((((a + b) + ((c * d) / f)) + g))",
+}
+};
     for (const auto& [input, exprected] : tests) {
         auto l = lexer::Lexer(input);
         auto p = Parser(std::move(l));
@@ -470,4 +483,28 @@ TEST(ParseProgram, FunctionParameter) {
             testLiteralExpression(function->parameters[i], expectedParams[i]);
         }
     }
+}
+
+TEST(ParseProgram, CallExpression) {
+    const std::string input = "add(1, 2 * 3, 4 + 5)";
+    auto l = lexer::Lexer(input);
+    auto p = Parser(std::move(l));
+    auto program = p.ParseProgram();
+    checkParserError(p);
+
+    ASSERT_EQ(program.statements.size(), 1);
+
+    const auto stmt = dynamic_cast<ast::ExpressionStatement*>(program.statements[0].get());
+    ASSERT_TRUE(!!stmt);
+
+    const auto exp = dynamic_cast<ast::CallExpression*>(stmt->expression.get());
+    ASSERT_TRUE(!!exp);
+
+    testIdentifier(exp->function, "add");
+
+    ASSERT_EQ(exp->arguments.size(), 3);
+
+    testLiteralExpression(exp->arguments[0], 1);
+    testInfixExpression(exp->arguments[1], 2, "*", 3);
+    testInfixExpression(exp->arguments[2], 4, "+", 5);
 }

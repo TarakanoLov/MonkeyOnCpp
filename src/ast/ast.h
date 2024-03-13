@@ -231,6 +231,26 @@ struct FunctionLteral : public Expression {
     std::shared_ptr<BlockStatement> body;
 };
 
+struct CallExpression : public Expression {
+    std::string expressionNode() override { return ""; }
+    std::string TokenLiteral() {
+        return this->token.literal;
+    }
+    std::string String() {
+        std::stringstream out;
+        out << function->String() << '(';
+        for (uint32_t i = 0; i < arguments.size(); ++i) {
+            out << arguments[i]->String() << (i == arguments.size() - 1 ? "" : ", ");
+        }
+        out << ')';
+        return out.str();
+    }
+
+    token::Token token;
+    std::shared_ptr<Expression> function;
+    std::vector<std::shared_ptr<Expression>> arguments;
+};
+
 } // namespace ast
 
 #endif // ast_ast_h

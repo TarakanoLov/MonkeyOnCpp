@@ -34,7 +34,8 @@ inline const auto precedences = std::unordered_map<std::string_view, Priority>{
     {token::MINUS, Priority::Sum},
     {token::SLASH, Priority::Product},
     {token::ASTERISK, Priority::Product},
-    };
+    {token::LPAREN, Priority::Call},
+};
 
 struct Parser {
     Parser(lexer::Lexer lexer) : l(std::move(lexer)) {
@@ -59,6 +60,7 @@ struct Parser {
         this->registerInfix(token::NOT_EQ, &Parser::parseInfixExpression);
         this->registerInfix(token::LT, &Parser::parseInfixExpression);
         this->registerInfix(token::GT, &Parser::parseInfixExpression);
+        this->registerInfix(token::LPAREN, &Parser::parseCallExpression);
     }
 
     std::shared_ptr<ast::Expression> parseIdentifier() {
@@ -316,6 +318,38 @@ struct Parser {
         lit->body = this->parseBlockStatement();
 
         return lit;
+    }
+
+    std::vector<std::shared_ptr<ast::Expression>> parseCallArguments() {
+        auto args = std::vector<std::shared_ptr<ast::Expression>>{};
+
+        if (this->peekTokenIs(token::RPAREN)) {
+            this->nextToken();
+            return args;
+        }
+
+        this->nextToken();
+        args.push_back(this->parseExpression(Priority::Lowest));
+
+        while (this->peekTokenIs(token::COMMA)) {
+            this->nextToken();
+            this->nextToken();
+            args.push_back(this->parseExpression(Priority::Lowest));
+        }
+
+        if (!this->expectPeek(token::RPAREN)) {
+            return {};
+        }
+
+        return args;
+    }
+
+    std::shared_ptr<ast::Expression> parseCallExpression(std::shared_ptr<ast::Expression> function) {
+        auto exp = std::make_shared<ast::CallExpression>();
+        exp->token = this->curToken;
+        exp->function = function;
+        exp->arguments = this->parseCallArguments();
+        return exp;
     }
 
     void noPrefixParseFnError(std::string_view t) {
