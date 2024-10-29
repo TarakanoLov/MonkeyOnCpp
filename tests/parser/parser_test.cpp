@@ -82,7 +82,7 @@ void checkParserError(const Parser& p) {
     }
 }
 
-TEST(Parser, Let) {
+TEST(Parser, LetStatement) {
     const std::string input = R"(
         let x = 5;
         let y = 10;

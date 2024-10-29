@@ -116,6 +116,8 @@ struct Parser {
             return {};
         }
 
+        
+
         while (!this->curTokenIs(token::SEMICOLON)) {
             this->nextToken();
         }
